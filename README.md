@@ -22,3 +22,15 @@ The practical in R for this session is available [**here**](https://rpubs.com/pa
 
 The code for the R practical is avaiable [**here**](https://github.com/patroncos/MIE-SEMinR-MLM/blob/master/mlm_practical.Rmd).
 
+## Data
+
+The data for this practical can be downloaded from the [UKDS website](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=6660)
+
+## Acknowledgements
+
+All materials have been created in RStudio.
+
+Copyright (c) 2020. Created by Patricio Troncoso, Manchester Institute of Education, The University of Manchester.
+
+This is distributed with Creative Commons Licence CC BY-NC-SA (Attribution-NonCommercial-ShareAlike)
+
