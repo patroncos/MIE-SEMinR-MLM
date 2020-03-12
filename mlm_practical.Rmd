@@ -68,7 +68,7 @@ library(dplyr)
 
 ## 1.3. Read in data 
 
-You can download the data from the [**UKDS website**](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=6660). There are two SPSS datasets and we will be using the one named "lsype_15000_final_2011_05_04.sav".
+You can download the data from  the [**UKDS website**](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=6660). There are two SPSS datasets and we will be using the one named "lsype_15000_final_2011_05_04.sav".
 
 To read this dataset into R, we need to use the package `haven`:
 
