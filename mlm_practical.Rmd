@@ -1,0 +1,416 @@
+---
+title: "MLM in practice: School value-added models <img src=\"seminars_logo.png\" width=\"200\" height=\"50\" style=\"float: right;\"/>"
+author: "Patricio Troncoso"
+date: "Latest update: March 2020"
+output: 
+  html_document:
+    code_download: yes
+    highlighter: null
+    theme: cosmo
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    fontsize: 12pt
+    includes:
+      after_body: footer.html
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+For this practical, we will use data from a sample of the Teaching dataset of The Longitudinal Study of Young People in England, 2004-2006
+available [**here**](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=6660).
+
+We will be fitting a series of school value-added models, which are one of the most prominent examples of multilevel models applied in education research.
+
+A traditional school value-added model is a model that attempts to isolate the "school effects" from the inherent variability/heterogeneity of the pupils. It attempts to ascertain what schools add to the progress of their pupils beyond what is expected of them, given their circumstances.
+
+<br>
+
+***
+
+# 1. Typical workflow setup and data preparation
+
+## 1.1. Define a working directory
+
+You can use any directory in your computer. As in the example below:
+
+```{r, eval=F}
+setwd("C:/myfolder")
+```
+
+Remember to download the data to the folder you will define as working directory, as this makes matters easier.
+
+## 1.2. Load packages
+
+You can always load packages later on, but it is a good practice to load packages at the beginning of the session on the top of your script or R markdown file.
+
+In this practical, we will use the packages `haven`, `lme4` and `ggplot2`. Remember that if you haven't installed them before, you need to do so before you call the `library` function:
+
+```{}
+install.packages("haven")
+install.packages("lme4")
+install.packages("ggplot2")
+install.packages("dplyr")
+```
+
+Then you load them as such:
+
+```{r, warning=F, message=F}
+library(haven)
+library(lme4)
+library(ggplot2)
+library(dplyr)
+```
+
+## 1.3. Read in data 
+
+You can download the data from the [**UKDS website**](https://beta.ukdataservice.ac.uk/datacatalogue/studies/study?id=6660). There are two SPSS datasets and we will be using the one named "lsype_15000_final_2011_05_04.sav".
+
+To read this dataset into R, we need to use the package `haven`:
+
+
+```{r, warning=F, message=F}
+ype<-read_sav("lsype_15000_final_2011_05_04.sav")
+```
+
+<br>
+
+***
+
+# 2. Select variables to use
+
+In England and Wales, the Department for Education (DfE) publishes periodically the so-called performance tables, in which schools are assessed (and classified) according to the progress that their pupils make from one stage to another. Secondary schools are judged on the GCSE results of their pupils and the progress they made since the end of primary, when they sat the KS2 tests.
+
+We will select the variables: pupilid, schoolID, ks2stand (KS2 scores), ks4stand (GCSE scores), gender, fsm and indschool.
+
+For this, we need to use the function `select` of the `dplyr` package:
+
+```{r, warning=F, message=F}
+
+valueadded <- select(ype, pupilid, schoolID, 
+                     ks2stand, ks4stand, gender, 
+                     fsm) 
+
+```
+
+<br>
+
+***
+
+# 3. Analysis
+
+## Task 1: Relationship between KS2 and GCSE
+
+Plot the relationship between KS2 and GCSE scores
+
+```{r, warning=F, message=F}
+
+plot1 <- ggplot(valueadded, aes(x=ks2stand, y=ks4stand)) +
+geom_point() + geom_smooth(aes(x=ks2stand, y=ks4stand), method = "lm")
+
+plot1
+
+```
+
+### Question time 1
+
+1.1 What can you observe in the plot?
+
+1.2 How correlated are KS2 and GCSE scores?
+
+```{r, warning=F, message=F}
+cor(valueadded$ks2stand, valueadded$ks4stand, use="comp")
+```
+
+<br>
+
+***
+
+## Task 2: Empty model
+
+Fit an empty multilevel model of pupils within schools
+
+```{r, warning=F, message=F}
+library(lme4)
+```
+
+We will use the `lmer` functions, which stands for "linear mixed effects regression".
+The basic syntax follows the conventions of most R packages running regression. You specify an outcome regressed `~` on variables. Each variable you add needs to be preceded by a `+` sign. You specify the data.
+
+Note that we will use ML, not REML. REML is the default in lmer.
+
+Random effects are added within brackets after the fixed effects. `1` indicates that the constant is allowed to vary freely. The random effects are specified like this: `(1|level2id)`. If you want to want random slopes, you specify `(1+variable|level2id)`
+
+
+```{r, warning=F, message=F}
+
+m0<-lmer(ks4stand~1+(1|schoolID), data=valueadded, REML=F)
+
+summary(m0)
+
+```
+
+This model is called "type 0" value-added model in the literature
+
+### Question time 2
+
+2.1. What is the proportion of variation that lies between schools in the empty model?
+
+2.2. What does that value mean?
+
+<br>
+
+***
+
+## Task 3: Value-added model
+
+Fit a model with "prior attainment" as the only covariate. According to the literature this is a "type AA" value-added model. According to the DfE, this is a school value-added model or "VA"
+
+```{r, warning=F, message=F}
+
+m1<-lmer(ks4stand~ks2stand+(1|schoolID), data=valueadded, REML=F)
+summary(m1)
+```
+
+### Question time 3
+
+3.1. How much variance is "explained" by prior attainment?
+
+<br>
+
+***
+
+## Task 4: Contextualised value-added model
+
+Fit a model with all the available level 1 variables. In the literature, this model is called "type AA" value-added. The DfE would this model a "contextualised value-added model" or "CVA".
+
+```{r, warning=F, message=F}
+
+m2<-lmer(ks4stand~ks2stand+factor(gender)+factor(fsm)+(1|schoolID), data=valueadded, REML=F)
+summary(m2)
+```
+
+### Question time 4
+
+4.1. How much have the variances (at both levels) reduced?
+
+4.2. What does this mean for the concept of value-added?
+
+<br>
+
+***
+
+## Task 5: Differential progress
+
+### Question time 5:
+
+5.1. Do male and female pupils have different levels of progress?
+
+```{r, warning=F, message=F}
+m3<-lmer(ks4stand~ks2stand+ks2stand*factor(gender)+factor(gender)+
+           factor(fsm)+(1|schoolID), data=valueadded, REML=F)
+
+summary(m3)
+```
+
+5.2. Do FSM eligible pupils make more or less progress?
+
+```{r, warning=F, message=F}
+m4<-lmer(ks4stand~ks2stand+ks2stand*factor(fsm)+factor(gender)+
+           factor(fsm)+(1|schoolID), data=valueadded, REML=F)
+
+summary(m4)
+```
+
+<br>
+
+***
+
+## Task 6: School-level variables
+
+One of the strengths of MLM is that we can evaluate the effect of multiple variables at different levels on the outcome of interest. Adding higher-level variables is done in the same way as any other individual-level variable.
+
+We can easily create a new school-level variable from the dataset we have if we aggregate pupil-level data. The code below uses the function `mutate` of the `dplyr` package to create a new variable that represents the percentage of pupils eligible for free school meals in each school:
+
+```{r, warning=F, message=F}
+valueadded <- valueadded %>%
+  group_by(schoolID) %>%
+  mutate(schoolfsm=mean(fsm, na.rm=T)*100)
+```
+
+You can inspect the results by clicking on the object `valueadded` that is in your Environment tab.
+
+After that, we're ready to fit the model with `schoolfsm`.
+
+```{r, warning=F, message=F}
+m5<-lmer(ks4stand ~ ks2stand + schoolfsm + (1|schoolID), data=valueadded, REML=F)
+
+summary(m5)
+```
+
+### Question time 6:
+
+6.1. What is the effect of the percentage of FSM eligible pupils on GCSE scores?
+
+<br>
+
+***
+
+## Task 7: School-specific VA estimates
+
+Plotting the higher-level residuals can be helpful to identify groups that have higher or lower than average effect on the individual-level outcome. In the case of school performance, the residuals can be thought of as the effect uniquely attributable to the school on the progress of their pupils.
+
+To plot the residuals with this purpose, we can use a "caterpillar plot".
+
+
+```{r, warning=F, message=F}
+
+u0 <- ranef(m1, condVar = TRUE) # These are the residuals from model "m1"
+
+u0se <- sqrt(attr(u0[[1]], "postVar")[1,,]) # These are the standard errors of the residuals
+
+schoolid <- as.numeric(rownames(u0[[1]])) # This is to create school identifiers
+```
+
+You will there are three additional objects in your environment. To put them together in one dataset, we do the following:
+
+```{r, warning=F, message=F}
+
+school_resid <- cbind(schoolid, u0[[1]], u0se)
+
+colnames(school_resid) <- c("schoolid","u0","u0se")
+
+# Then we sort the residuals in ascending order:
+
+school_resid <- school_resid[order(school_resid$u0), ] 
+
+# And we create a new column (variable) containing the ranks:
+
+school_resid <- cbind(school_resid, c(1:dim(school_resid)[1]))
+
+colnames(school_resid)[4] <- "u0rank" # This is to give a name to the new column containing the ranks
+```
+
+After all this, we end up with a new dataset `school_resid` containing the school value-added estimates. We can plot with `ggplot2` as such:
+
+```{r, warning=F, message=F}
+school_VA_plot <- ggplot(school_resid, aes(x=u0rank, y=u0)) + 
+  geom_point(stat="identity") +
+  geom_errorbar(aes(ymin=u0-1.96*u0se, ymax=u0+1.96*u0se)) +
+  geom_hline(yintercept=0,size=1.2, alpha=0.7,colour="#EF3B2C", linetype="twodash") +
+  xlab("Rank of residuals") +
+  ylab("School VA estimates") +
+  theme_bw()
+
+school_VA_plot
+
+```
+
+In the plot above, the red line at `y=0` represents the overall national average. Each school is represented by a point and a vertical segment, which represent the average school-specific effect and its 95% confidence interval (respectively). Schools on the left-hand side of the distribution that do not overlap with the national average line are said to be "significantly underperforming"; whereas those on the right-hand side that do not overlap the red line are "significantly overperforming". All schools that do overlap are those that can be thought of as "performing as expected". 
+
+**NB:** This is not the only tool to make such judgements about school performance; a comprehensive accountability system would involve also school inspections and qualitative judgements.
+
+
+<br>
+
+***
+
+# Bonus track
+
+You could plot predictions for each school:
+```{r, warning=F, message=F}
+
+valueadded2<-filter(valueadded, !is.na(ks4stand) & !is.na(ks2stand))
+
+valueadded2$pred<-fitted(m1)
+
+school_plot<-ggplot(valueadded2, aes(x=ks2stand, y=pred, group=factor(schoolID))) + 
+  geom_smooth(method="lm", colour="black") +
+  xlab("Standardised KS2 score") +
+  ylab("Predicted KS4 score") +
+  theme_bw()
+
+school_plot
+
+```
+
+In the plot above, each line represents a school. As you can see, there is a lot of variability across schools.In this plot, school predicted lines are parallel because we haven't allowed the effect of KS2 scores to vary across schools. You can compare this plot with the first plot we did above, where the single-level regression line was clearly not enough to represent the extreme variability in scores. The multilevel model can account for that variability across schools and hence the multiple regression lines seen here are a much better representation of the observed data.
+
+You can also plot the higher-level (school) residuals to check for normality
+
+```{r, warning=F, message=F}
+
+hist(school_resid$u0)
+```
+
+
+You can also plot individual-level to check for normality
+
+```{r, warning=F, message=F}
+
+valueadded2$ind_resid <- residuals(m1)
+
+hist(valueadded2$ind_resid)
+
+```
+
+And finally, you can plot individual-level residuals against the predicted values (previously retrieved):
+
+```{r, warning=F, message=F}
+
+homoscedasticity <- ggplot(valueadded2, aes(y = ind_resid, x = pred)) + geom_point()
+
+homoscedasticity
+
+```
+
+
+
+<br>
+
+***
+
+# Final comments
+
+Multilevel modelling can be used for so much more than modelling educational outcomes of pupils nested within schools. It can also be used to understand variation across time within individuals; variation between prisoners nested within prisons; variation in income for individuals nested within geographical areas; variation in health outcomes of patients nested within GP practices and hospitals; and so many other examples. 
+
+Here are some applications that you may want to explore:
+
+**a) About school value-added models:**
+
+  + **Leckie, G.** (2009). [The complexity of school and neighbourhood effects and movements of pupils on school differences in models of educational achievement](https://rss.onlinelibrary.wiley.com/doi/full/10.1111/j.1467-985X.2008.00577.x)
+  
+  + **Rasbash, J., Leckie, G., Pillinger, R., Jenkins, J.** (2010). [Children's educational progress: partitioning family, school and area effects] (https://rss.onlinelibrary.wiley.com/doi/full/10.1111/j.1467-985X.2010.00642.x)
+
+  + **Troncoso, P., Pampaka, M., Olsen, W.** (2016). [Beyond traditional school value-added models: a multilevel analysis of complex school effects in Chile](https://www.tandfonline.com/doi/full/10.1080/09243453.2015.1084010)
+
+  + **Troncoso, P.** (2019). [A two-fold indicator of school performance and the cost of ignoring it](https://www.sciencedirect.com/science/article/pii/S0883035518313120)
+
+**b) About prison effects:**
+
+ + **Morales-Gomez, A.** (2018). [Individual and Structural Factors Affecting Recidivism: The Role of Prisoners, Prisons and Places in the Chilean Context](https://www.research.manchester.ac.uk/portal/files/77567623/FULL_TEXT.PDF). (Prison effects: pp. 106-157). (Area effects: pp. 158-201)
+
+**c) General multilevel modelling books:**
+
+  + **Goldstein, H.** (2011). Multilevel statistical models (4th ed.). John Wiley and Sons
+
+  + **Hox, J., Moerbeek, M., van de Schoot, R.** (2017). Multilevel Analysis: Techniques and Applications (3rd Ed). Routledge
+ 
+  + **Snijders, T., Bosker, R.** (2012). Multilevel Analysis: An Introduction to Basic and Advanced Multilevel Modeling (2nd ed.). Sage
+  
+<br>
+**HIGHLY RECOMMENDED:** 
+For a more complete (and free) course on Multilevel Modelling, visit the [LEMMA website](https://www.cmm.bris.ac.uk/lemma/) of the University of Bristol.
+
+<br>
+
+***
+
+Once you see multilevel structures in your data, you cannot unsee them...
+
+```{r, echo=FALSE, fig.align= "center", out.width="300px", fig.cap=" -'I see MLMs!' (via Giphy)", message=F, warning=F}
+knitr::include_graphics("https://media.giphy.com/media/wc7RJ0QIrIXu0/giphy.gif")
+```
